@@ -1,0 +1,9 @@
+#Folder with Customer Data inside the Scripts
+/TooMuchPII
+#Folder with scripts by co-workers or from the web
+/NotAuthoredByMe
+#Output files, variables, etc.
+*.txt
+*.html
+*.xml
+*.csv

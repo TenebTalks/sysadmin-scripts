@@ -1,9 +1,7 @@
 #Check for PowerArubaSW Module
 $mod = Get-Command -Module PowerArubaSW
-##DEBUG LINES
-#Write-Output "MOD:"
-#$mod
 
+#Install Module if not installed (requires elevation)
 if ($mod -notcontains "Function") {
     Install-Module PowerArubaSW
 }
@@ -13,7 +11,11 @@ if ($mod -notcontains "Function") {
 Import-Module PowerArubaSW
 
 # Collect connection details interactively
-[string]$SwitchIP = Read-Host -Prompt "Enter the Switch IP address"
+#[string]$SwitchIP = Read-Host -Prompt "Enter the Switch IP address"
+$SwitchIP = '##SYSTEM.HOSTNAME##'
+$SwitchUser = '##SSH.USER##'
+$secSwitchPass = '##SSH.PASS##'
+[pscredential]$SwitchCreds = New-Object System.Management.Automation.PSCredential ($SwitchUser, $secSwitchPass)
 #$Username = Read-Host -Prompt "Enter the Switch Username"
 #$Password = Read-Host -Prompt "Enter the Switch Password" -AsSecureString
 
@@ -24,7 +26,7 @@ $CurrentLTSPatch = "WC.16.10.0012"
 [int]$DesiredCT = 3600
 
 # Connect to the Aruba Switch
-$Session = Connect-ArubaSW -Server $SwitchIP -SkipCertificateCheck
+$Session = Connect-ArubaSW -Server $SwitchIP -SkipCertificateCheck -Credentials $SwitchCreds
 #Connect-ArubaSW -Hostname $SwitchIP -SkipCertificateCheck
 
 
@@ -34,7 +36,7 @@ if ($Session) {
     Write-Output "Connected to the Aruba AOS-S switch at $SwitchIP."
     
     # Check firmware version against LTS version
-    $SystemStatus = Get-ArubaSWSystemStatus
+    $SystemStatus = Get-ArubaSWSystemStatusGlobal
     $Firmware = $SystemStatus.firmware_version
     if ($Firmware -ne $CurrentLTSPatch) {
         Write-Output "Warning: Switch firmware version ($($Firmware)) does not match the LTS version ($CurrentLTSPatch)."
