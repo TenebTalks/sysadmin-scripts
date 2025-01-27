@@ -7,3 +7,5 @@
 *.html
 *.xml
 *.csv
+*.cfg
+*.log
