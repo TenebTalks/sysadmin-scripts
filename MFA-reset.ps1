@@ -4,7 +4,7 @@ $noMfaConfig = @()
 Write-Host "README: You will be prompted for the user's full username, which is their email address.  Next, you will get a full modern authentication window.   You must sign into it as a Microsoft365 admin account - either a dedicated Office Admin or one of the Domain admins depending on the environment.  After signing in, The user's current StrongAuthenticationMethods property will be displayed, followed by a prompt confirming whether you want to clear that user's StrongAuthenticationMethods.  After you've made your choice, the system will print the StrongAuthenticationMethods again, either cleared or the same as before."
 Write-Host ""
 #Get user object to reset from Technician
-$Upn = Read-Host -Prompt 'Input full username, eg username@westmonroepartners.com, ADuser@wfchocolate.com, username@rmbcap.com, etc.'
+$Upn = Read-Host -Prompt 'Input full username, eg username@entratenant.biz, ADuser@adsyncenvironment.net, etc.'
 
 #This command connects to the Microsoft Online Service, thus prompting for an O365 login.  It will accept an Office365 login from any client, most likely.  User must only put a WMP admin in to the modern auth box.
 Connect-MsolService

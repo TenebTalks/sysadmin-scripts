@@ -2,6 +2,8 @@
 /TooMuchPII
 #Folder with scripts by co-workers or from the web
 /NotAuthoredByMe
+#Potentially starting a new Github for the contents of DVpythoncentral
+/DVpythoncentral
 #Output files, variables, etc.
 *.txt
 *.html
@@ -9,3 +11,4 @@
 *.csv
 *.cfg
 *.log
+*.yaml
