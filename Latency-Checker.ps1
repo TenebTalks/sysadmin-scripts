@@ -1,10 +1,46 @@
 ## Authored by Scott Bennett
 ## Latency-Checker.ps1
-## ONLY EDIT $TargetList
+## Use -TargetListCSV parameter with path to a csv file containing only legal IP addresses and DNS addresses as strings when running
+## Use -DNSServerCSV arameter with path to a csv file containing only legal IP addresses as strings when running
 
-##Global Variables
-#$LatencyCollection = @{}
 
+param(
+    [String]$TargetListCSV,
+    [String]$DNSServerCSV
+)
+
+##Global Variable Handling
+$TargetList = @()
+
+if ($TargetListCSV) {
+    $TargetList = Get-Content -Path $TargetListCSV
+    
+    #$TargetList ##ForDebug
+} else {
+    $gateways = (Get-NetRoute "0.0.0.0/0").NextHop
+
+    $TargetList = @(
+        '1.1.1.1', 'hulu.com', 'teams.microsoft.com', 'youtube.com', 'outlook.office.com'
+    )
+
+    $TargetList += $gateways
+}
+#Write-Host "Target List: $TargetList"
+
+$dnsServers = @()
+if ($DNSServerCSV) {
+    $dnsServers = Get-Content -Path $DNSServerCSV
+    $dnsServers
+} else {
+    $LocalDNSservers = Get-DnsClientServerAddress -AddressFamily IPv4 | Select-Object -ExpandProperty ServerAddresses
+
+    $defaultDNSservers = @(
+        '1.1.1.1', '9.9.9.9', '8.8.8.8'
+    )
+
+    $dnsServers = $LocalDNSservers + $defaultDNSservers
+}
+#Write-Host "DNS Server List: $dnsServers"
 
 ##Function Definitions
 ##Latency  Check takes Target and Count - outputs raw result and stats
@@ -15,15 +51,23 @@ function Latency-Check {
     )
     #Setting Default Packet Count = 12
     if($PacketCount -eq $null){ $PacketCount = 12 }
+    
+    $StartTime = Get-Date
 
 
     $LatencyResult = Test-Connection -ComputerName $Target -Count $PacketCount
-    $LatencyStats = ($LatencyResult | Measure-Object -Property Latency -Minimum -Maximum -Average -ErrorAction Continue)
-    if ($LatencyStats -eq $null) {
-        $LatencyStats = ($LatencyResult | Measure-Object -Property ResponseTime -Minimum -Maximum -Average -ErrorAction Stop)
+    if ($LatencyResult.Latency -ne $null) {
+        $LatencyStats = ($LatencyResult | Measure-Object -Property Latency -Minimum -Maximum -Average -ErrorAction SilentlyContinue)    
+    } elseif ($LatencyResult.ResponseTime -ne $null) {    
+        $LatencyStats = ($LatencyResult | Measure-Object -Property ResponseTime -Minimum -Maximum -Average -ErrorAction SilentlyContinue)
+    } else {
+        $LatencyProps = ($LatencyResult | Get-Member)
+        return "Due to disparate behavior across different powershell versions, Latency Stats cannot be collected at this time.  Please try running this script from the latest version of PWSH7 (latency) OR if that is not possible, run from the latest version of Powershell 5 (ResponseTime).  Your version gives these properties:", $LatencyProps
     }
-    Write-Output $LatencyResult
-    Write-Output $LatencyStats
+    
+    $EndTime = Get-Date
+
+    return "ICMP Latency Start Time:", $StartTime, $LatencyResult, $LatencyStats, "ICMP Latency End Time:", $EndTime
     
 }
 
@@ -59,12 +103,12 @@ function DNS-NameResolve {
     )
 
 
-    $currTime = Get-Date -Hour -Minute -Second -Millisecond
+    $currTime = Get-Date
     $DNSresolve = Resolve-DnsName -Name $Target -QuickTimeout -NoHostsFile -DnsOnly -ErrorAction SilentlyContinue
-    return $DNSresolve, $currTime
+    $endTime = Get-Date
+    $timeDiff = $endTime - $currTime
+    return "DNS Resolution Start Time: ", $currTime, $DNSresolve, "DNS Resolution End Time: ", $endTime, "Time Difference (ms): ", $timeDiff.TotalMilliseconds
     
-    #return $DNSreslove
-    #Write-Output $DNSresults
 }
 
 
@@ -80,12 +124,12 @@ function Test-Dns {
         $latency = ($endTime - $startTime).TotalMilliseconds
         $packetLoss = 0
         $success = $true
-        $error = ""
+        $DNSerror = ""
     } else {
         $latency = "N/A"
         $packetLoss = "N/A"
         $success = $false
-        $error = "Failed to resolve"
+        $DNSerror = "Failed to resolve"
     }
 
     return [PSCustomObject]@{
@@ -94,7 +138,7 @@ function Test-Dns {
         Success = $success
         Latency = $latency
         PacketLoss = $packetLoss
-        Error = $error
+        Error = $DNSerror
     }
 }
 
@@ -116,22 +160,17 @@ Write-Output "Latency Check Log taken at $LogDate" | Out-File -FilePath $FileNam
 
 
 
-$TargetList = @(
-    '1.1.1.1', 'hulu.com', 'teams.microsoft.com', '', 'youtube.com'
-)
-$dnsServers = @(
-    '1.1.1.1', '9.9.9.9', '8.8.8.8', '192.168.1.5'
-)
+
 
 foreach($Target in $TargetList) {
-    Write-Output "Ping Latency and DNS Resolution from default DNS server for $Target [" | Out-File -FilePath $FileName -Append
+    Write-Output "Ping Latency and DNS Resolution from default DNS server for $Target [[" | Out-File -FilePath $FileName -Append
     Latency-Check -Target $Target | Out-File -FilePath $FileName -Append
     DNS-NameResolve -Target $Target | Out-File -FilePath $FileName -Append
-    Write-Output "]" | Out-File -FilePath $FileName -Append
+    Write-Output "]]" | Out-File -FilePath $FileName -Append
 }
 
 foreach($server in $dnsServers) {
-    Write-Output "DNS Benchmark for target list using $server [" | Out-File -FilePath $FileName -Append
+    Write-Output "DNS Benchmark for target list using $server [[" | Out-File -FilePath $FileName -Append
     DNS-Benchmark -Server $server -Domains $TargetList | Out-File -FilePath $FileName -Append
-    Write-Output "]" | Out-File -FilePath $FileName -Append
+    Write-Output "]]" | Out-File -FilePath $FileName -Append
 }
